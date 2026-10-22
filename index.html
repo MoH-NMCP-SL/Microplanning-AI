@@ -487,6 +487,8 @@ html,body{overflow-x:clip;}
 .trk-bar select:disabled{opacity:.55;}
 .trk-pdf{background:#c0392b;color:#fff;flex:0 0 auto;align-self:flex-end;}
 .trk-pdf2{background:#1F4E78;}
+.trk-img{background:#1e8e5a;}
+.img-msg{font-size:12px;color:var(--muted);margin:4px 0 8px;}
 .trk-count{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 10px;}
 .trk-scope{font-weight:700;color:#1f4a6a;margin-right:6px;}
 table.trk tr.tr-sub td{background:#e3f3e8!important;}
@@ -1060,7 +1062,7 @@ function staticMap(o){
   const legItems=o.legend||[]; const [m0,c0]=mk(10,10); c0.font=`bold ${fs+3}px ${FONT}`;
   let lx=pad, rows=1; legItems.forEach(([t])=>{ const w=60+c0.measureText(t).width; if(lx+w>W-pad){ rows++; lx=pad; } lx+=w; });
   const legH=rows*40+30;
-  const b=bboxOf(o.fit), kx=Math.cos((b[1]+b[3])/2*Math.PI/180);
+  const b=bboxOf(o.fit); if(o.names){ const wx=b[2]-b[0]; b[0]-=wx*0.04; b[2]+=wx*0.2; } const kx=Math.cos((b[1]+b[3])/2*Math.PI/180);
   const sc=(W-2*pad)/((b[2]-b[0])*kx), dh=(b[3]-b[1])*sc, H=Math.round(dh+2*pad+legH);
   const [c,ctx]=mk(W,H); c.className='map';
   const P=(x,y)=>[pad+(x-b[0])*kx*sc, pad+(b[3]-y)*sc];
@@ -1069,7 +1071,8 @@ function staticMap(o){
   (o.lines||[]).forEach(a=>draw(a.f,null,a.stroke,a.lw||2));
   ctx.textAlign='center'; (o.labels||[]).forEach(l=>{ const [px,py]=P(l.lng,l.lat); ctx.font=`${l.bold?'bold ':''}${l.fs||fs-3}px ${FONT}`; ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.strokeText(l.text,px,py); ctx.fillStyle=l.color||'#3b5368'; ctx.fillText(l.text,px,py); });
   const r=o.r||8; [...(o.pts||[])].sort((a,b)=>a.sub-b.sub).forEach(p=>{ const [px,py]=P(p.lng,p.lat); ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2);
-    if(p.approx){ ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle=p.sub?SUB_C:NOT_C; ctx.lineWidth=r*0.55; ctx.stroke(); } else { ctx.fillStyle=p.sub?SUB_C:NOT_C; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke(); } });
+    if(p.approx){ ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle=p.sub?SUB_C:NOT_C; ctx.lineWidth=r*0.55; ctx.stroke(); } else { ctx.fillStyle=p.sub?SUB_C:NOT_C; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke(); }
+    if(o.names){ ctx.font=`bold ${fs-2}px ${FONT}`; ctx.textAlign='left'; ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.strokeText(p.PHU,px+r+5,py); ctx.fillStyle=p.sub?'#1e6b41':'#9b2c20'; ctx.fillText(p.PHU,px+r+5,py); } });
   lx=pad; let ly=H-legH+28; ctx.font=`bold ${fs+3}px ${FONT}`; ctx.textAlign='left';
   legItems.forEach(([t,col,kind])=>{ const w=60+ctx.measureText(t).width; if(lx+w>W-pad){ lx=pad; ly+=40; }
     if(kind==='sq'){ ctx.fillStyle=col; ctx.fillRect(lx,ly-12,26,24); ctx.strokeStyle='#8a9aa8'; ctx.lineWidth=1; ctx.strokeRect(lx,ly-12,26,24); }
@@ -1132,7 +1135,7 @@ function initLeaflet(which){
     distOutline(map,!small);
     const dS=document.getElementById('chD'), list=document.getElementById('chList');
     selFill(dS,[...new Set(S.chiefs.map(c=>c.District))].map(D_),'All districts','');
-    dS.onchange=()=>{ const v=dS.value, d=v?S.chiefs.find(c=>D_(c.District)===v).District:'', cs=S.chiefs.filter(c=>!d||c.District===d);
+    dS.onchange=()=>{ const v=dS.value, d=v?S.chiefs.find(c=>D_(c.District)===v).District:'', cs=S.chiefs.filter(c=>!d||c.District===d); M.sel={d};
       const fs=cs.map(c=>c.f).filter(Boolean); if(d&&fs.length) map.fitBounds(L.geoJSON({type:'FeatureCollection',features:fs}).getBounds(),{padding:[12,12]}); else M.refit();
       const k=x=>cs.filter(c=>chiefState(c.sub,c.rec)===x).length;
       list.innerHTML=`<span class="trk-scope">${esc(d?D_(d)+' District':'All districts')}</span><span class="stat-pill ok">${k('all')} chiefdoms with all PHUs in</span><span class="stat-pill warn">${k('some')} with some still to submit</span><span class="stat-pill bad">${k('zero')} with none yet</span>`; };
@@ -1141,7 +1144,7 @@ function initLeaflet(which){
   if(which==='cphu'){
     const dS=document.getElementById('cpD'), cS=document.getElementById('cpC'), list=document.getElementById('cpList');
     const outl=L.geoJSON(S.cgeo||{type:'FeatureCollection',features:[]},{style:{color:'#7f95a8',weight:.8,fill:false},interactive:false}).addTo(map);
-    distOutline(map,!small); let hi=null, ptsL=null; const T={d:'',c:''};
+    distOutline(map,!small); let hi=null, ptsL=null; const T={d:'',c:''}; M.sel=T;
     const fill=()=>{ selFill(dS,[...new Set(S.chiefs.map(c=>c.District))].map(D_),'All districts',T.d?D_(T.d):'');
       selFill(cS,S.chiefs.filter(c=>c.District===T.d).map(c=>c.Chiefdom),'All chiefdoms',T.c); cS.disabled=!T.d; };
     const go=()=>{ if(hi){ map.removeLayer(hi); hi=null; } if(ptsL){ map.removeLayer(ptsL); }
@@ -1400,6 +1403,7 @@ function trackerHTML(b){
     <label>PHU<select class="form-control" id="trkP"></select></label>
     <button type="button" class="btn trk-pdf" id="trkPdf" onclick="trackerPdf()">&#11015; PHU list PDF</button>
     <button type="button" class="btn trk-pdf trk-pdf2" id="trkPdf2" onclick="trackerSummaryPdf()">&#11015; District and chiefdom PDF</button>
+    <button type="button" class="btn trk-pdf trk-img" id="trkImg" onclick="shareImage('trk',this)">&#128247; Image to share</button>
   </div>
   <div class="trk-count" id="trkCount"></div><div class="dl-status" id="trkStatus"></div>
   <div class="data-table-wrap trk-wrap"><table class="data-table trk" id="${id}"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
@@ -1427,6 +1431,86 @@ const trackerScope=T=>T.p?`${T.p}, ${T.c}, ${T.d} District`:T.c?`${T.c}, ${T.d} 
 /* the two logos on a white card at the right of the PDF header */
 function pdfLogos(doc,W,M){ try{ const h=19, wi=h*300/158, x=W-M-(h+wi+9); doc.setFillColor(255,255,255); doc.roundedRect(x,5.5,h+wi+9,h+3,2,2,'F');
   doc.addImage(LOGO_MOH,'PNG',x+2,7,h*114/120,h); doc.addImage(LOGO_ICF,'JPEG',x+h+6,7,wi,h); }catch(e){} }
+/* ═══ Image to share: the current filter as one PNG card, ready for WhatsApp or email ═══ */
+const LOGO_IMG={}; [['moh',LOGO_MOH],['icf',LOGO_ICF]].forEach(([k,u])=>{ const im=new Image(); im.src=u; LOGO_IMG[k]=im; });
+function shareCard(title,scope,counts,body,note){
+  const W=1080, pad=40, hdr=150, bw=W-2*pad, bh=body?Math.round(body.height*bw/body.width):0, boxH=counts?118:0;
+  const [m0,c0]=mk(10,10); c0.font=`italic 20px ${FONT}`; const noteL=note?wrapText(c0,note,W-2*pad):[];
+  const H=hdr+70+boxH+(note?noteL.length*28+18:0)+bh+80;
+  const [c,ctx]=mk(W,H);
+  const g=ctx.createLinearGradient(0,0,W,hdr); g.addColorStop(0,'#2c6793'); g.addColorStop(1,'#1f4a6a'); ctx.fillStyle=g; ctx.fillRect(0,0,W,hdr); ctx.fillStyle='#C9A227'; ctx.fillRect(0,hdr,W,6);
+  /* logos on a white card */
+  const lh=88, iw=lh*300/158, cx=W-pad-(lh+iw+26); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(cx,(hdr-lh-16)/2,lh+iw+26,lh+16,12):ctx.rect(cx,(hdr-lh-16)/2,lh+iw+26,lh+16); ctx.fill();
+  try{ ctx.drawImage(LOGO_IMG.moh,cx+8,(hdr-lh)/2,lh*114/120,lh); ctx.drawImage(LOGO_IMG.icf,cx+lh+16,(hdr-lh)/2,iw,lh); }catch(e){}
+  ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font=`bold 36px ${FONT}`; wrapText(ctx,title,cx-pad-20).slice(0,2).forEach((ln,i)=>ctx.fillText(ln,pad,48+i*40));
+  ctx.font=`20px ${FONT}`; ctx.fillStyle='#dbe6ef'; ctx.fillText(`Mass ITN Campaign ${RUN.S.ty} micro planning · NMCP Sierra Leone`,pad,hdr-48); ctx.fillText(`Data fetched ${RUN.meta.when}`,pad,hdr-20);
+  let y=hdr+52; ctx.fillStyle='#1f4a6a'; ctx.font=`bold 32px ${FONT}`; ctx.fillText(scope,pad,y);
+  if(counts){ y+=26; const bwid=(W-2*pad-40)/3;
+    counts.forEach(([v,l,col],i)=>{ const x=pad+i*(bwid+20); ctx.fillStyle='#F5F7F9'; ctx.fillRect(x,y,bwid,boxH-20); ctx.fillStyle=col; ctx.fillRect(x,y,8,boxH-20);
+      ctx.fillStyle=col; ctx.font=`bold 40px ${FONT}`; ctx.fillText(n0(v),x+24,y+44); ctx.fillStyle='#444'; ctx.font=`20px ${FONT}`; ctx.fillText(l,x+24,y+78); }); y+=boxH; }
+  if(note){ ctx.fillStyle='#55667a'; ctx.font=`italic 20px ${FONT}`; noteL.forEach((ln,i)=>ctx.fillText(ln,pad,y+16+i*28)); y+=noteL.length*28+18; }
+  if(body) ctx.drawImage(body,pad,y,bw,bh); y+=bh;
+  ctx.fillStyle='#888'; ctx.font=`18px ${FONT}`; ctx.fillText('Prepared by ICF-SL with Microplanning-AI',pad,H-30); ctx.textAlign='right'; ctx.fillText(stamp(),W-pad,H-30);
+  return c;
+}
+/* PHUs as green and red chips under each chiefdom, or a chiefdom summary when the list is long */
+function trackerBody(rows){
+  const W=1000, fs=22, chipH=40, gap=8; const [m0,c0]=mk(10,10); c0.font=`bold ${fs}px ${FONT}`;
+  const groups=[]; rows.forEach(r=>{ const k=r[0]+'|'+r[1]; let g=groups[groups.length-1]; if(!g||g.k!==k){ g={k,d:r[0],c:r[1],rows:[]}; groups.push(g); } g.rows.push(r); });
+  const summary=rows.length>400; let H=10;
+  const lay=groups.map(g=>{ if(summary) return null; let x=0,lines=1; g.rows.forEach(r=>{ const w=c0.measureText(r[2]).width+30; if(x+w>W&&x>0){ lines++; x=0; } x+=w+gap; }); return lines; });
+  if(summary){ const ds=[...new Set(groups.map(g=>g.d))]; H+=ds.length*52+groups.length*42+10; } else lay.forEach(l=>{ H+=50+l*(chipH+gap)+14; });
+  const [c,ctx]=mk(W,H); let y=10;
+  const tint={all:'#d5ecdd',some:'#fcefc7',zero:'#f6d5d1'};
+  if(summary){ let lastD='';
+    groups.forEach(g=>{ const s=g.rows.filter(r=>r[4]==='Submitted').length, n=g.rows.length;
+      if(g.d!==lastD){ lastD=g.d; ctx.fillStyle='#1F4E78'; ctx.fillRect(0,y,W,44); const ds=rows.filter(r=>r[0]===g.d), dsub=ds.filter(r=>r[4]==='Submitted').length;
+        ctx.fillStyle='#fff'; ctx.font=`bold ${fs}px ${FONT}`; ctx.textAlign='left'; ctx.fillText(`${g.d} District`,14,y+22); ctx.textAlign='right'; ctx.fillText(`${dsub} of ${ds.length} submitted`,W-14,y+22); y+=52; }
+      ctx.fillStyle=tint[s>=n?'all':(s?'some':'zero')]; ctx.fillRect(0,y,W,38); ctx.fillStyle='#22313f'; ctx.font=`${fs-1}px ${FONT}`; ctx.textAlign='left'; ctx.fillText(g.c,14,y+19);
+      ctx.textAlign='right'; ctx.font=`bold ${fs-1}px ${FONT}`; ctx.fillStyle=s>=n?'#1e6b41':(s?'#8a6200':'#9b2c20'); ctx.fillText(`${s} of ${n} submitted`,W-14,y+19); y+=42; });
+  } else groups.forEach((g,gi)=>{ const s=g.rows.filter(r=>r[4]==='Submitted').length;
+    ctx.fillStyle='#e8f0f7'; ctx.fillRect(0,y,W,42); ctx.fillStyle='#1F4E78'; ctx.font=`bold ${fs}px ${FONT}`; ctx.textAlign='left'; ctx.fillText(`${g.d} District · ${g.c}`,12,y+21);
+    ctx.textAlign='right'; ctx.font=`${fs-2}px ${FONT}`; ctx.fillText(`${s} submitted, ${g.rows.length-s} still to submit`,W-12,y+21); y+=50;
+    let x=0; ctx.textAlign='left'; ctx.font=`bold ${fs}px ${FONT}`;
+    g.rows.forEach(r=>{ const ok=r[4]==='Submitted', w=ctx.measureText(r[2]).width+30; if(x+w>W&&x>0){ x=0; y+=chipH+gap; }
+      ctx.fillStyle=ok?'#d5ecdd':'#f6d5d1'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(x,y,w,chipH,chipH/2):ctx.rect(x,y,w,chipH); ctx.fill();
+      ctx.fillStyle=ok?'#1e6b41':'#9b2c20'; ctx.fillText(r[2],x+15,y+chipH/2+1); x+=w+gap; });
+    y+=chipH+gap+14; });
+  return c;
+}
+async function shareImage(kind,btn){
+  if(!RUN) return; const S=RUN.S; let title, scope, counts=null, body=null, note=null, file;
+  const cnt=rs=>{ const s=rs.filter(r=>r[4]==='Submitted').length; return [[s,'PHUs submitted',SUB_C],[rs.length-s,'PHUs still to submit',NOT_C],[rs.length,'PHUs on record','#1F4E78']]; };
+  const old=btn&&btn.innerHTML; if(btn){ btn.disabled=true; btn.innerHTML='Making the image…'; } await sleep(30);
+  try{
+    if(kind==='trk'){ const T=RUN.trk, rows=T.b.rows.filter(r=>trackerMatch(r,T));
+      title='PHU Micro Plan Submission Tracker'; scope=trackerScope(T); counts=cnt(rows); body=trackerBody(rows);
+      if(rows.length>400) note='Green: every PHU in the chiefdom has submitted. Amber: some still to submit. Red: none yet. Pick a district for the PHU names.';
+      else note='Green: micro plan submitted. Red: still to submit.'; file='PHU_Tracker_'+scope; }
+    if(kind==='chief'){ const d=(RUN.maps.chief&&RUN.maps.chief.sel&&RUN.maps.chief.sel.d)||'';
+      const cs=S.chiefs.filter(c=>!d||c.District===d), feats=[...new Set(cs.map(c=>c.f).filter(Boolean))];
+      title='Micro Plan Submission by Chiefdom'; scope=d?`${D_(d)} District`:'All districts';
+      const rs=S.track.filter(r=>!d||r.District===d).map(r=>[0,0,0,0,r.plan?'Submitted':'']); counts=cnt(rs);
+      body=d&&feats.length?staticMap({fit:feats,areas:feats.map(f=>{ const o=S.featStat.get(f); return {f,fill:CH_COL[o?chiefState(o.sub,o.rec):'none'],stroke:'#ffffff',lw:1.5}; }),
+        labels:feats.map(f=>{ const [lat,lng]=centre(f), o=S.featStat.get(f); return {lat,lng,text:`${String(f.properties.adm3).replace(/ Chiefdom$/,'')} ${o?o.sub+'/'+o.rec:''}`,fs:18,color:'#1F4E78',bold:true}; }),
+        legend:[[CH_LBL.all,SUB_C,'sq'],[CH_LBL.some,PART_C,'sq'],[CH_LBL.zero,NOT_C,'sq']]}):mapChiefdoms(S);
+      note=d?'Numbers on each chiefdom: PHUs submitted out of PHUs on record.':null; file='Chiefdom_Map_'+scope; }
+    if(kind==='cphu'){ const T=(RUN.maps.cphu&&RUN.maps.cphu.sel)||{d:'',c:''};
+      const pts=S.mpts.filter(p=>(!T.d||p.District===T.d)&&(!T.c||p.Chiefdom===T.c));
+      title='Micro Plan Submission by PHU'; scope=T.c?`${T.c}, ${D_(T.d)} District`:(T.d?`${D_(T.d)} District`:'All districts');
+      const rs=S.track.filter(r=>(!T.d||r.District===T.d)&&(!T.c||r.Chiefdom===T.c)).map(r=>[0,0,0,0,r.plan?'Submitted':'']); counts=cnt(rs);
+      if(T.c){ const f=S.chiefFeat.get(T.d+'|'+T.c), fit=f?[f]:(S.distFeat.get(geoName(T.d))?[S.distFeat.get(geoName(T.d))]:[]);
+        body=fit.length?staticMap({fit,areas:fit.map(f=>({f,fill:'#EEF4FA',stroke:'#1F4E78',lw:2.5})),pts,r:11,names:true,legend:ptLegend(pts)}):null; }
+      else body=T.d?mapDistrict(S,T.d):mapCountryPhu(S);
+      note='Green: submitted. Red: still to submit. Hollow points have no usable GPS reading and are placed inside their chiefdom.'; file='PHU_Map_'+scope; }
+    const card=shareCard(title,scope,counts,body,note), name=`${file.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'')}_${stamp()}.png`;
+    const blob=await new Promise(r=>card.toBlob(r,'image/png'));
+    const f=new File([blob],name,{type:'image/png'});
+    if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title}); }catch(e){ if(e.name!=='AbortError') saveBlob(blob,name); } }
+    else saveBlob(blob,name);
+  }catch(e){ console.error(e); if(btn) btn.title='Could not make the image: '+e.message; }
+  if(btn){ btn.disabled=false; btn.innerHTML=old; }
+}
 /* the PDF follows the drop downs: all districts, one district, one chiefdom or one PHU */
 async function trackerPdf(){
   const T=RUN&&RUN.trk, st=document.getElementById('trkStatus'); if(!T) return;
@@ -1542,8 +1626,8 @@ function renderScreen(spec){
       const sq=(c,t)=>`<span><span class="sq" style="background:${c}"></span>${t}</span>`;
       let ctl='', leg='', after='';
       if(w==='phu') leg=pl+`<span style="font-weight:400;color:var(--muted);">Tap a point for its plan.</span>`;
-      if(w==='chief'){ ctl=`<div class="trk-bar"><label>District<select class="form-control" id="chD"></select></label></div><div class="trk-count" id="chList"></div>`; leg=sq(SUB_C,CH_LBL.all)+sq(PART_C,CH_LBL.some)+sq(NOT_C,CH_LBL.zero)+sq(NONE_C,'Grey: no PHU on record linked to this area'); }
-      if(w==='cphu'){ ctl=`<div class="trk-bar"><label>District<select class="form-control" id="cpD"></select></label><label>Chiefdom<select class="form-control" id="cpC"></select></label></div>`; leg=pl; after='<div id="cpList"></div>'; }
+      if(w==='chief'){ ctl=`<div class="trk-bar"><label>District<select class="form-control" id="chD"></select></label><button type="button" class="btn trk-pdf trk-img" onclick="shareImage('chief',this)">&#128247; Image to share</button></div><div class="trk-count" id="chList"></div>`; leg=sq(SUB_C,CH_LBL.all)+sq(PART_C,CH_LBL.some)+sq(NOT_C,CH_LBL.zero)+sq(NONE_C,'Grey: no PHU on record linked to this area'); }
+      if(w==='cphu'){ ctl=`<div class="trk-bar"><label>District<select class="form-control" id="cpD"></select></label><label>Chiefdom<select class="form-control" id="cpC"></select></label><button type="button" class="btn trk-pdf trk-img" onclick="shareImage('cphu',this)">&#128247; Image to share</button></div>`; leg=pl; after='<div id="cpList"></div>'; }
       if(w==='gps') leg=`<span><span class="dot" style="background:${NOT_C}"></span>Where the GPS point was taken</span>`+sq('rgba(224,168,0,.5)','Chiefdom where the PHU should be, dashed line to it');
       wrap.innerHTML=ctl+`<div class="lmap" id="${w==='phu'?'leafMap':'lm_'+w}" data-which="${w}"></div><div class="map-legend">${leg}</div>`+after;
       { const nx=spec[idx+1]; if(w!=='cphu'&&nx&&nx.t==='chart'&&nx.screen===false){ const cp=document.createElement('div'); cp.className='cap'; cp.textContent=`Figure ${nx.num}. ${nx.caption}`; wrap.appendChild(cp); } }
